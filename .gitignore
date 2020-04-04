@@ -1,0 +1,5 @@
+/.idea/
+/.python-version
+/lib/
+__pycache__/
+.DS_Store
