@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import re
 from collections import Counter, defaultdict
@@ -15,9 +13,9 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 
+from sketched_nl2sql import utils
 from sketched_nl2sql.data import batchify
 from sketched_nl2sql.data.vocab import Vocab
-from sketched_nl2sql import utils
 
 AGG_OPS = ["", "MAX", "MIN", "COUNT", "SUM", "AVG"]
 COND_OPS = ["=", ">", "<", "OP"]
@@ -26,10 +24,6 @@ COND_OPS = ["=", ">", "<", "OP"]
 class SketchedQuery(NamedTuple):
     """ data container for query object """
 
-    agg_id: int
-    col_id: int
-    conds: List[Cond] = None
-
     class Cond(NamedTuple):
         """ conditions """
 
@@ -37,6 +31,10 @@ class SketchedQuery(NamedTuple):
         op_id: int
         value_beg: int
         value_end: int
+
+    agg_id: int
+    col_id: int
+    conds: List[Cond] = None
 
 
 class WikiSqlExample(NamedTuple):

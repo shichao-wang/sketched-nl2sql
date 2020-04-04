@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 from abc import ABCMeta
 from typing import List, Optional, Tuple
@@ -8,7 +7,7 @@ from torch import nn, Tensor
 
 from sketched_nl2sql.modules import nn_utils
 from sketched_nl2sql.modules.attention import ColumnAttention
-from sketched_nl2sql.modules import HeadersEncoder, LSTMEncoder
+from sketched_nl2sql.modules.encoder import HeadersEncoder, LSTMEncoder
 
 
 class SketchModule(nn.Module, metaclass=ABCMeta):
