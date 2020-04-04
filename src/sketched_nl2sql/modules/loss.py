@@ -41,9 +41,8 @@ class QueryLoss(nn.Module):
         ) = target
 
         batch_size = agg_target.size(0)
-        loss = torch.tensor(0, dtype=torch.float32)
         # select
-        loss = loss + f.cross_entropy(sel_logits, sel_target)
+        loss = f.cross_entropy(sel_logits, sel_target)
         selected_col = sel_logits.argmax(1)
         # agg
         loss = loss + f.cross_entropy(agg_logits[torch.arange(batch_size), selected_col], agg_target)
