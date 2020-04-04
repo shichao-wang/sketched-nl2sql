@@ -3,7 +3,7 @@ import logging
 import torch
 from torch import nn, Tensor
 
-from modules import nn_utils
+from sketched_nl2sql.modules import nn_utils
 
 logger = logging.getLogger(__name__)
 

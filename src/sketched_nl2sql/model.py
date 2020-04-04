@@ -7,7 +7,7 @@ from torch import nn, Tensor
 from torch.nn.utils import rnn
 from transformers import AutoModel
 
-from modules.query_predictor import (
+from sketched_nl2sql.modules.query_predictor import (
     AggregatorPredictor,
     SelectPredictor,
     WhereColumnPredictor,

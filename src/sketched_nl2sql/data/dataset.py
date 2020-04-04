@@ -15,8 +15,8 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 
-from data import batchify
-from data.vocab import Vocab
+from sketched_nl2sql.data import batchify
+from sketched_nl2sql.data.vocab import Vocab
 from sketched_nl2sql import utils
 
 AGG_OPS = ["", "MAX", "MIN", "COUNT", "SUM", "AVG"]

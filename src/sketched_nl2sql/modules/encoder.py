@@ -4,7 +4,7 @@ import torch
 from torch import nn, Tensor
 from torch.nn.utils import rnn
 
-from modules import nn_utils
+from sketched_nl2sql.modules import nn_utils
 
 
 class LSTMEncoder(nn.Module):

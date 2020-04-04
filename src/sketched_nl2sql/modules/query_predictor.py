@@ -6,9 +6,9 @@ from typing import List, Optional, Tuple
 import torch
 from torch import nn, Tensor
 
-from modules import nn_utils
-from modules.attention import ColumnAttention
-from modules.encoder import HeadersEncoder, LSTMEncoder
+from sketched_nl2sql.modules import nn_utils
+from sketched_nl2sql.modules.attention import ColumnAttention
+from sketched_nl2sql.modules import HeadersEncoder, LSTMEncoder
 
 
 class SketchModule(nn.Module, metaclass=ABCMeta):
