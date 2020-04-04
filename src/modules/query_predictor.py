@@ -94,7 +94,7 @@ class AggregatorPredictor(nn.Module):
             probability of aggregator for each columns
         """
         question_mask = nn_utils.compute_mask(question_embedding)
-        question_encoding, (question_hidden, _) = self.question_encoder.forward(question_embedding, question_mask)
+        question_encoding, (_, _) = self.question_encoder.forward(question_embedding, question_mask)
         # Shape: (batch_size, num_headers, hidden_dim)
         headers_hidden = self.headers_encoder(headers_embeddings)
         # Shape: (num_header, sequence_length)

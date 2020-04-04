@@ -6,8 +6,8 @@ import torch
 from torch import optim
 
 from data.vocab import Vocab
-from model import SketchedTextToSql
 from modules.loss import QueryLoss
+from sketched_nl2sql.model import SketchedTextToSql
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 """ batchify """
-from typing import Callable, Dict, List, Tuple, TypeVar, Union, NamedTuple
+from typing import Callable, Dict, List, NamedTuple, Tuple, TypeVar, Union
 
 import torch
 from torch import Tensor

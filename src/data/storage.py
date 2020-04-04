@@ -1,7 +1,7 @@
 from typing import Dict, List, NamedTuple
 
-agg_ops = ["", "MAX", "MIN", "COUNT", "SUM", "AVG"]
-cond_ops = ["=", ">", "<", "OP"]
+AGG_OPS = ["", "MAX", "MIN", "COUNT", "SUM", "AVG"]
+COND_OPS = ["=", ">", "<", "OP"]
 
 
 class SketchedQuery:
@@ -19,20 +19,18 @@ class SketchedQuery:
     @classmethod
     def from_dict(cls, query_dict: Dict):
         conditions = [
-            SketchedQuery.Condition(
-                cond["col_id"], cond["op_id"], cond["value_beg"], cond["value_end"]
-            )
+            SketchedQuery.Condition(cond["col_id"], cond["op_id"], cond["value_beg"], cond["value_end"])
             for cond in query_dict["conds"]
         ]
         return cls(query_dict["select"], query_dict["aggregator"], conditions)
 
     def __repr__(self):
-        query_string = "SELECT {}({}) FROM table".format(agg_ops[self.aggregate_index], self.select_index)
+        query_string = "SELECT {}({}) FROM table".format(AGG_OPS[self.aggregate_index], self.select_index)
         if self.conditions:
             query_string += " WHERE "
             query_string += "AND".join(
                 [
-                    f"{cond.column_index} {cond_ops[cond.operator_index]} [{cond.value_start, cond.value_end}]"
+                    f"{cond.column_index} {COND_OPS[cond.operator_index]} [{cond.value_start, cond.value_end}]"
                     for cond in self.conditions
                 ]
             )

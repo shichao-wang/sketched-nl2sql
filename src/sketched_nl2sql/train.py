@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-import utils
 from data.dataset import WikisqlDataset
-from engine import Engine
+from sketched_nl2sql import utils
+from sketched_nl2sql.engine import Engine
 
 string_args = [
     "--data_path",
