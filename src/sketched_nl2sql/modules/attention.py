@@ -35,8 +35,8 @@ class ColumnAttention(nn.Module):
         # Shape: (batch_size, header_num, sequence_length)
         attention_weight = headers_hidden @ self.w(question_encoding).transpose(1, 2)
         # add penalty on padding
-        mask = headers_mask.unsqueeze(2) @ question_mask.unsqueeze(1)
-        attention_weight = attention_weight.masked_fill(mask.bool(), -float("inf"))
+        attention_weight = attention_weight.masked_fill(headers_mask.bool().unsqueeze(-1), -float("inf"))
+        attention_weight = attention_weight.masked_fill(question_mask.bool().unsqueeze(1), -float("inf"))
         attention_weight = attention_weight.softmax(dim=-1)
         # defending replace nan to 0, those place with nan should not be used
         attention_weight = attention_weight.masked_fill(torch.isnan(attention_weight), 0)
