@@ -1,15 +1,29 @@
 import logging
 from argparse import Namespace
 from operator import attrgetter
+from typing import Dict, List, Tuple
 
 import torch
 from torch import optim
 
 from sketched_nl2sql.data.vocab import Vocab
-from sketched_nl2sql.modules.loss import QueryLoss
 from sketched_nl2sql.model import SketchedTextToSql
+from sketched_nl2sql.modules.loss import QueryLoss
 
 logger = logging.getLogger(__name__)
+
+
+def move_to_device(data, device: str):
+    if isinstance(data, torch.Tensor):
+        return data.to(device)
+    elif isinstance(data, List):
+        return [move_to_device(d, device) for d in data]
+    elif isinstance(data, Tuple):
+        return tuple(move_to_device(d, device) for d in data)
+    elif isinstance(data, Dict):
+        return {key: move_to_device(value, device) for key, value in data.items()}
+    else:
+        raise ValueError("receives {}".format(type(data)))
 
 
 class Engine:
@@ -17,8 +31,9 @@ class Engine:
     inspired by stanza's Trainer
     """
 
-    def __init__(self, args: Namespace, vocab: Vocab):
-        self.model = SketchedTextToSql.from_args(args)
+    def __init__(self, args: Namespace, vocab: Vocab, device: str = None):
+        self.device = device or "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = SketchedTextToSql.from_args(args).to(self.device)
         self.args = args
         self.vocab = vocab
         self.optimizer = optim.Adam(filter(attrgetter("requires_grad"), self.model.parameters()))
@@ -32,7 +47,9 @@ class Engine:
         else:
             self.model.eval()
 
+        batch_data = move_to_device(batch_data, self.device)
         input_data, target = batch_data
+
         logits = self.model(*input_data)
         loss = self.criterion(logits, target)
 
