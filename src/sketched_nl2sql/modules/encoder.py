@@ -4,8 +4,6 @@ import torch
 from torch import nn, Tensor
 from torch.nn.utils import rnn
 
-from sketched_nl2sql.modules import nn_utils
-
 
 class LSTMEncoder(nn.Module):
     """ wrapper class for lstm"""
@@ -44,13 +42,4 @@ class HeadersEncoder(nn.Module):
         :param headers_embeddings: [batch_size, (num_headers, max_header_tokens, embedding_dim)]
         :return:
         """
-        headers_num_list = [emb.size(0) for emb in headers_embeddings]
-        # Shape: (batch_size * num_headers, max_num_tokens, embedding_dim)
-        concatenated_embedding = torch.cat(headers_embeddings)
-        mask = nn_utils.compute_mask(concatenated_embedding)
-        # Shape: (batch_size * num_headers, 1, encoding_dim)
-        _, (concatenated_encoding, _) = self.inner_encoder.forward(concatenated_embedding, mask)
-        unpadded_headers_encodings = concatenated_encoding.squeeze().split_with_sizes(headers_num_list)
-        # Shape: (batch_size, max_num_headers, hidden_dim)
-        headers_encoding = rnn.pad_sequence(unpadded_headers_encodings, batch_first=True)  # pad on header number
-        return headers_encoding
+

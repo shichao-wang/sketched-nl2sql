@@ -16,11 +16,7 @@ class ColumnAttention(nn.Module):
         self.w = nn.Linear(hidden_dim, hidden_dim)
 
     def forward(
-        self,
-        question_encoding: Tensor,
-        headers_hidden: Tensor,
-        question_mask: Tensor = None,
-        headers_mask: Tensor = None,
+        self, question_encoding: Tensor, headers_hidden: Tensor, question_mask: Tensor, headers_mask: Tensor,
     ) -> Tensor:
         """ compute start_attention mask and apply to question_hidden
         :param question_encoding: (batch_size, sequence_length, hidden_dim)
@@ -29,14 +25,12 @@ class ColumnAttention(nn.Module):
         :param headers_mask: (batch_size, header_num)
         :return (batch_size, header_num, sequence_length)
         """
-        question_mask = nn_utils.compute_mask(question_encoding) if question_mask is None else question_mask
-        headers_mask = nn_utils.compute_mask(headers_hidden) if headers_mask is None else headers_mask
 
         # Shape: (batch_size, header_num, sequence_length)
         attention_weight = headers_hidden @ self.w(question_encoding).transpose(1, 2)
         # add penalty on padding
-        attention_weight = attention_weight.masked_fill(headers_mask.bool().unsqueeze(-1), -float("inf"))
-        attention_weight = attention_weight.masked_fill(question_mask.bool().unsqueeze(1), -float("inf"))
+        attention_weight = attention_weight.masked_fill(headers_mask.unsqueeze(-1), -float("inf"))
+        attention_weight = attention_weight.masked_fill(question_mask.unsqueeze(1), -float("inf"))
         attention_weight = attention_weight.softmax(dim=-1)
         # defending replace nan to 0, those place with nan should not be used
         attention_weight = attention_weight.masked_fill(torch.isnan(attention_weight), 0)

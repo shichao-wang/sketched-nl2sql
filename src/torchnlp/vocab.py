@@ -3,9 +3,11 @@ import logging
 import re
 from collections import Counter
 from operator import itemgetter
-from typing import Collection, Iterable, Iterator, List, Mapping, Union
+from typing import Collection, Dict, Iterable, Iterator, List, Mapping, Union
 
 from transformers import PreTrainedTokenizer
+
+from torchnlp.engine import PytorchStateMixin
 
 logger = logging.getLogger(__name__)
 
@@ -14,23 +16,25 @@ ATTR_TOKEN_REGEX = re.compile(r"(?P<prefix>\w+)_token$")
 ATTR_INDEX_REGEX = re.compile(r"(?P<prefix>\w+)_index$")
 
 
-# attr_tokens's order is fixed after python3.6.
-class Vocab(Collection[str]):
+# Since attribute tokens is passed by kwargs, their order is fixed after python3.6.
+class Vocab(PytorchStateMixin, Collection[str]):
     """
     :attr _index2token
     """
 
-    STATE_ATTRS = ["_id2token", "max_size", "attr_tokens"]
-
-    def __init__(self, token2index: Mapping[str, int] = None, **attr_tokens: str):
+    def __init__(self, token2index: Mapping[str, int] = None, **attribute_tokens: str):
         if isinstance(token2index, Counter):
             raise ValueError("you should not pass counter to Vocab's constructor")
         self._token2index = token2index or {}
         self._index2token = {index: token for token, index in self._token2index.items()}
-        self.attr_tokens = attr_tokens
-        # expose attr_tokens
+        self.__setup_attribute_tokens(attribute_tokens)
+
+    def __setup_attribute_tokens(self, attribute_tokens: Dict[str, str]):
+        """ expose """
+        # expose attribute_tokens
+        self.__attribute_tokens = []
         missing_tokens = []
-        for token_attr, token in attr_tokens.items():
+        for token_attr, token in attribute_tokens.items():
             # only token that end with '_token' will be exposed to vocabulary's attribute
             if not token_attr.endswith("_token"):
                 continue
@@ -41,21 +45,31 @@ class Vocab(Collection[str]):
             index_attr = ATTR_TOKEN_REGEX.sub(r"\g<prefix>_index", token_attr)
             setattr(self, token_attr, token)
             setattr(self, index_attr, index)
+            self.__attribute_tokens.extend((token_attr, index_attr))
 
         if missing_tokens:
             logger.warning(missing_tokens)
 
+    # def __remove_attribute_tokens(self):
+    #     for attr_token in self.__attribute_tokens:
+    #         delattr(self, attr_token)
+    def state_dict(self):
+        """ state dict """
+        return {"token2index": self._token2index, "attribute_tokens": self.__attribute_tokens}
+
+    def load_state_dict(self, state_dict):
+        """ load state """
+        attribute_tokens = state_dict.pop("attribute_tokens")
+        token2index = state_dict.get("token2index")
+        self._token2index = token2index
+        self._index2token = {index: token for token, index in self._token2index.items()}
+        self.__setup_attribute_tokens(attribute_tokens)
+
     def __getattr__(self, attr):  # could not be find
         msg = "{attr} is not set, but accessed, you add {added}, forgot pass it to constructor?".format(
-            attr=attr, added=self.attr_tokens
+            attr=attr, added=self.__attribute_tokens
         )
         raise ValueError(msg)
-
-    def __getstate__(self):
-        return self.__dict__
-
-    def __setstate__(self, state):
-        self.__dict__ = state
 
     @classmethod
     def from_counter(cls, counter: Mapping[str, int], max_size: int = None, **attr_tokens: str):
@@ -72,14 +86,18 @@ class Vocab(Collection[str]):
         return cls(token2index, **attr_tokens)
 
     @classmethod
-    def from_pretrained_tokenizer(cls, tokenizer: PreTrainedTokenizer, **attr_tokens):
+    def from_pretrained_tokenizer(cls, tokenizer: PreTrainedTokenizer, **attribute_tokens):
         """ retrieve tokenizer from pretrained_tokenizer """
-        attr_tokens.update(
-            {attr_name: getattr(tokenizer, attr_name) for attr_name in tokenizer.SPECIAL_TOKENS_ATTRIBUTES}
-        )
-        return cls(tokenizer.get_vocab(), **attr_tokens)
+        tokenizer_tokens = {}
+        for attr_name in tokenizer.SPECIAL_TOKENS_ATTRIBUTES:
+            token = getattr(tokenizer, attr_name)
+            if token is not None:
+                tokenizer_tokens[attr_name] = token
 
-    def item2index(self, token: str):
+        attribute_tokens.update(tokenizer_tokens)
+        return cls(tokenizer.get_vocab(), **attribute_tokens)
+
+    def item2index(self, token: str) -> int:
         """ convert token to index """
         index = self._token2index.get(token, None)
         if index is None:
@@ -90,9 +108,9 @@ class Vocab(Collection[str]):
         """ convert index to token """
         return self._index2token[index]
 
-    def map2index(self, items: Iterator[str]) -> List[int]:
+    def map2index(self, tokens: Iterator[str]) -> List[int]:
         """ map """
-        return [self.item2index(item) for item in items]
+        return [self._token2index[token] for token in tokens]
 
     def map2item(self, indices: Iterator[int]) -> List[str]:
         """ unmap """

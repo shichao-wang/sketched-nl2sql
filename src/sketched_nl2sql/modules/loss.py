@@ -22,8 +22,8 @@ class QueryLoss(nn.Module):
         :return:
         """
         (
-            agg_logits,
             sel_logits,
+            agg_logits,
             where_num_logits,
             where_col_logits,
             where_op_logits,
@@ -31,8 +31,8 @@ class QueryLoss(nn.Module):
             where_end_logits,
         ) = logits
         (
-            agg_target,
             sel_target,
+            agg_target,
             where_num_target,
             where_col_target,
             where_op_target,  # (batch_size, num_column, num_operator)
