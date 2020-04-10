@@ -11,6 +11,7 @@ class QueryLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
+    # noinspection PyAugmentAssignment,PyAugmentAssignment,PyAugmentAssignment,PyAugmentAssignment,PyAugmentAssignment,PyAugmentAssignment
     def forward(
         self,
         logits: Tuple[Tensor, ...],
@@ -54,7 +55,7 @@ class QueryLoss(nn.Module):
             for masked_col_logits, col_target in zip(where_col_logits, where_col_target):  # type: Tensor, Tensor
                 if col_target.size(0) == 0:
                     continue
-                col_logits = masked_col_logits.masked_select(masked_col_logits != 0)
+                col_logits = masked_col_logits.masked_select(masked_col_logits != -float("inf"))
                 one_hot_col_target = torch.zeros_like(col_logits).scatter_(0, col_target, 1)
                 pos_weight = torch.empty_like(col_logits).fill_(3)
                 loss = loss + f.binary_cross_entropy_with_logits(col_logits, one_hot_col_target, pos_weight=pos_weight)

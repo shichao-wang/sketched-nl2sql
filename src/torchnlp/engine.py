@@ -31,14 +31,16 @@ class Engine:
             attr = getattr(self, name, None)
             if attr is None:
                 logger.warning(f"Redundant checkpoint attribute: {name}")
-            elif not isinstance(attr, PytorchStateMixin) or not (
+            elif isinstance(attr, PytorchStateMixin) or (
                 hasattr(attr, "__getstate__") and hasattr(attr, "__setstate__"),
             ):
+                continue
+            else:
                 invalid_attrs.append(name)
         if invalid_attrs:
             raise AttributeError(f"Attributes: {invalid_attrs} does not support `state_dict` or `load_state_dict`")
 
-    def feed(self, batch_data, update: bool = True):
+    def feed(self, input_batch, target_batch, update: bool = True):
         """ feed a batch of data to model """
         raise NotImplementedError()
 
@@ -54,6 +56,7 @@ class Engine:
             state = getattr(self, ckpt_attr)
             if isinstance(state, PytorchStateMixin):
                 state = state.state_dict()
+                checkpoint[ckpt_attr] = state
 
         logger.info(f"Saving checkpoint to {path.abspath(checkpoint_file)}")
         torch.save(checkpoint, checkpoint_file)

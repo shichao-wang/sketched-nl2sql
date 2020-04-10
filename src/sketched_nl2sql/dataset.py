@@ -2,39 +2,57 @@ import json
 import re
 from operator import itemgetter
 from os import path
-from typing import List, NamedTuple
+from typing import Callable, Dict, List, NamedTuple, Set, Union
 
+import torch
+from torch import Tensor
+from torch.nn.utils import rnn
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from torchnlp import batchify
+from torchnlp.vocab import Vocab
 
 AGG_OPS = ["", "MAX", "MIN", "COUNT", "SUM", "AVG"]
 COND_OPS = ["=", ">", "<", "OP"]
 
 
 class Cond(NamedTuple):
-    """ conditions """
-
     col_id: int
     op_id: int
-    value: str
+    value_start: int
+    value_end: int
 
 
-class SketchedQuery(NamedTuple):
-    """ data container for query object """
+class Query(NamedTuple):
+    """ target """
 
+    sel_col_id: int
     agg_id: int
-    col_id: int
-    conds: List[Cond] = []
+    conds: Set[Cond]
+    # num_conds: int
+    # cond_col_ids: List[int]
+    # cond_op_ids: List[int]
+    # cond_value_starts: List[int]
+    # cond_value_ends: List[int]
 
 
-class WikiSqlExample(NamedTuple):
+class Header(NamedTuple):
+    """ container for header """
+
+    table_id: str
+    column_tokens: List[List[str]]
+    types: List[str]
+
+    def __len__(self):
+        return len(self.column_tokens)
+
+
+class Example(NamedTuple):
     """ data container for WikiSql dataset s"""
 
-    question_tokens: str
-    table_id: str
-    query: SketchedQuery = None
+    question_tokens: List[str]
+    header: Header
+    query: Query = None
 
 
 def remove_unicode(line: str):
@@ -42,125 +60,98 @@ def remove_unicode(line: str):
     return re.sub(r"(?P<unicode>\\u\w{4})(?P<digital>\d+)", r"\g<unicode> \g<digital>", line)
 
 
-def load_wikisql(wiki_sql_data: str, tables_file: str):
+def load_wikisql(wiki_sql_data: str, tables_file: str, tokenize: Callable[[str], List[str]]):
     """ main load function """
-    named_headers = {}
+    named_headers: Dict[str, Header] = {}
     with open(tables_file) as fp:
-        for data in map(json.loads, fp):
+        for data in tqdm(map(json.loads, fp), desc="Reading Tables File"):
             table_id: str = data["id"]
-            headers = {"headers": [h for h in data["header"]], "types": data["types"]}  # avoid being batched
-            named_headers[table_id] = headers
-    # read tables
+            named_headers[table_id] = Header(table_id, [tokenize(col) for col in data["header"]], data["types"])
     examples = []
     with open(wiki_sql_data) as fp:
         for table_id, question, sql in tqdm(
             map(itemgetter("table_id", "question", "sql"), map(json.loads, map(remove_unicode, fp))),
             desc="Reading Dataset",
-        ):
-            # question_tokens = tokenize(question)
-            conds = []
+        ):  # type: str, str, Dict
+            question_tokens = tokenize(question)
+
+            col_ids, op_ids, value_starts, value_ends = [], [], [], []
+            conds = set()
             for cond in sql["conds"]:
                 col_id, op_id, value = cond
-                # value_tokens = tokenize_func(str(value))
-                # start_pos, end_pos = find_value_position(question, value_tokens)
-                conds.append(Cond(col_id, op_id, str(value)))
-            query = SketchedQuery(sql["agg"], sql["sel"], conds)
-            example = WikiSqlExample(question, table_id, query)
+                value_tokens = tokenize(str(value))
+                start, end = find_value_position(question_tokens, value_tokens)
+                # col_ids.append(col_id)
+                # op_ids.append(op_id)
+                # value_starts.append(start)
+                # value_ends.append(end)
+                conds.add(Cond(col_id, op_id, start, end))
+
+            query = Query(sql["sel"], sql["agg"], conds)
+            example = Example(question_tokens, named_headers[table_id], query)
             examples.append(example)
+
     return named_headers, examples
 
 
 class WikisqlDataset(Dataset):
     """ wikisql dataset """
 
-    def __init__(self, data_path: str, split: str):
+    def __init__(self, data_path: str, split: str, tokenize: Callable[[str], List[str]]):
         # load data
         data_file = path.join(data_path, split) + ".jsonl"
         tables_file = path.join(data_path, split) + ".tables.jsonl"
-        self.headers, self.examples = load_wikisql(data_file, tables_file)
-
-        # # build vocabulary
-        # special_tokens = {
-        #     "pad_token": "[PAD]",
-        #     "unk_token": "[UNK]",
-        #     "sep_token": "[SEP]",
-        #     "cls_token": "[CLS]",
-        # }
-
-        # # header_tokens = flatten(map(itemgetter("types"), headers.values()))
-        # # self.type_vocab = Vocab.from_iterable(header_tokens)
-        #
-        # # process data, process table first then examples
-        # headers_tensor: Dict[str, Dict[str, List[int]]] = defaultdict(dict)
-        # for table_id, header in headers.items():
-        #     headers_tokens_tensor_list = []
-        #     headers_tokens_mask_list = []
-        #     for tokens in header["tokens_list"]:
-        #         headers_tokens_tensor_list.extend(self.vocab.map2index(tokens) + [self.vocab.sep_index])
-        #         headers_tokens_mask_list.extend([1] * len(tokens) + [-2])
-        #     headers_tensor[table_id]["headers_tokens"] = headers_tokens_tensor_list
-        #     headers_tensor[table_id]["headers_tokens_mask"] = headers_tokens_mask_list
-        #
-        #     # header_types = self.type_vocab.map2index(header["types"])
-        #     # headers_tensor[table_id]["header_types"] = header_types
-        #
-        # self.tensor_examples = []
-        # example: WikiSqlExample
-        # for example in tqdm(examples, "Processing examples"):
-        #     header_tensor = headers_tensor[example.table_id]
-        #     input_tokens = torch.as_tensor(
-        #         [self.vocab.cls_index] + header_tensor["headers_tokens"]
-        #         # + [self.vocab.sep_index]
-        #         + self.vocab.map2index(example.question),
-        #         dtype=torch.long,
-        #     )
-        #     input_segment = torch.as_tensor(
-        #         [-1] + header_tensor["headers_tokens_mask"]
-        #         # + [-2]
-        #         + [2] * len(example.question),
-        #         dtype=torch.long,
-        #     )
-        #     input_data = (input_tokens, input_segment)
-        #     if example.query.conds:
-        #         conditions = torch.as_tensor(
-        #             [[cond.col_id, cond.op_id, cond.value_beg, cond.value_end] for cond in example.query.conds]
-        #         ).unbind(1)
-        #     else:
-        #         conditions = torch.as_tensor(([], [], [], []), dtype=torch.long)
-        #     target_data = (
-        #         torch.as_tensor(example.query.agg_id),
-        #         torch.as_tensor(example.query.col_id),
-        #         torch.as_tensor(len(example.query.conds)),
-        #         *conditions,
-        #     )
-        #     self.tensor_examples.append((input_data, target_data))
+        self.headers, self.examples = load_wikisql(data_file, tables_file, tokenize)
 
     def __getitem__(self, index):
         example = self.examples[index]
-        headers = self.headers[example.table_id]
-
-        return (
-            (example.question_tokens, example.table_id, headers["headers"]),
-            (
-                example.query.col_id,
-                example.query.agg_id,
-                len(example.query.conds),
-                [cond.col_id for cond in example.query.conds],
-                [cond.op_id for cond in example.query.conds],
-                [cond.value for cond in example.query.conds],
-            ),
-        )
+        return example
 
     def __len__(self):
         return len(self.examples)
 
 
-batchifier = batchify.tuples(
-    batchify.tuples(batchify.skip(), batchify.skip(), batchify.skip()),
-    batchify.tuples(
-        batchify.skip(), batchify.skip(), batchify.skip(), batchify.skip(), batchify.skip(), batchify.skip(),
-    ),
-)
+def collate_fn(vocab: Vocab, device: Union[torch.device, str]):
+    """ wikisql collate function """
+
+    def _collate(examples: List[Example]):
+        questions_tokens, headers, queries = zip(*examples)  # type: List[List[str]], List[Header], List[Query]
+        questions_tensor = rnn.pad_sequence(
+            [torch.as_tensor(vocab.map2index(tokens), dtype=torch.long, device=device) for tokens in questions_tokens],
+            batch_first=True,
+            padding_value=vocab.pad_index,
+        )  # type: Tensor
+        headers_tensor = rnn.pad_sequence(
+            [
+                torch.as_tensor(vocab.map2index(tokens), dtype=torch.long, device=device)
+                for header in headers
+                for tokens in header.column_tokens
+            ],
+            batch_first=True,
+            padding_value=vocab.pad_index,
+        )
+        header_lengths = [len(header) for header in headers]
+        sel_col_ids, agg_ids, conds_batch = zip(*queries)
+        cond_col_ids, cond_col_ops, cond_starts, cond_ends = [], [], [], []
+        for conds in conds_batch:
+            cond_col_ids.append(torch.as_tensor([cond.col_id for cond in conds], dtype=torch.long, device=device))
+            cond_col_ops.append(torch.as_tensor([cond.op_id for cond in conds], dtype=torch.long, device=device))
+            cond_starts.append(torch.as_tensor([cond.value_start for cond in conds], dtype=torch.long, device=device))
+            cond_ends.append(torch.as_tensor([cond.value_end for cond in conds], dtype=torch.long, device=device))
+        return (
+            (questions_tensor, headers_tensor, header_lengths),
+            (
+                torch.as_tensor(sel_col_ids, dtype=torch.long, device=device),
+                torch.as_tensor(agg_ids, dtype=torch.long, device=device),
+                torch.as_tensor([len(conds) for conds in conds_batch], dtype=torch.long, device=device),
+                cond_col_ids,
+                cond_col_ops,
+                cond_starts,
+                cond_ends,
+            ),
+        )
+
+    return _collate
 
 
 def similar(token1: str, token2: str):
@@ -173,4 +164,4 @@ def find_value_position(question_tokens: List[str], value_tokens: List[str]):
     for index in (index for index, t in enumerate(question_tokens) if similar(t, value_tokens[0])):
         if all(similar(q, v) for q, v in zip(question_tokens[index : index + length], value_tokens)):
             return index, index + length - 1
-    raise ValueError(question_tokens + "\n" + value_tokens)
+    raise ValueError(question_tokens + ["\n"] + value_tokens)

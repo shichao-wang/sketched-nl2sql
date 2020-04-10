@@ -5,8 +5,10 @@ import numpy
 import torch
 
 
-def set_random_seed(seed: int):
+def set_random_seed(seed: int = None):
     """ set random state"""
+    if not seed:
+        return
     torch.manual_seed(seed)
     numpy.random.seed(seed)
     random.seed(seed)

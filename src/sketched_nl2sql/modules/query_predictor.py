@@ -92,7 +92,7 @@ class SelectPredictor(SketchModule):
             [self.question_projector(conditioned_question_hidden), self.headers_projector(headers_hidden)], dim=-1
         )
         logits = self.output_projector(x.tanh())
-        return logits.squeeze() * headers_mask
+        return logits.squeeze().masked_fill(headers_mask != 1, -float("inf"))
 
 
 class AggregatorPredictor(SketchModule):
@@ -124,7 +124,7 @@ class AggregatorPredictor(SketchModule):
             question_encoding, question_mask, headers_hidden, headers_mask
         )
         logits = self.output_projector(conditioned_question_hidden)
-        return logits * headers_mask.unsqueeze(-1)
+        return logits.masked_fill(headers_mask.unsqueeze(-1) != 1, -float("inf"))
 
 
 class WhereNumPredictor(SketchModule):
@@ -158,6 +158,7 @@ class WhereColumnPredictor(SketchModule):
 
     def forward(self, question_embedding: Tensor, headers_embeddings: Tensor, num_headers: List[int]):
         r"""
+        :param num_headers:
         :param headers_embeddings: (batch_size, num_headers, num_header_tokens, embedding_dim)
         :param question_embedding: (batch_size, sequence_length, embedding_dim)
         :return: (batch_size, num_headers)
@@ -177,7 +178,7 @@ class WhereColumnPredictor(SketchModule):
             [self.headers_projector(headers_hidden), self.question_projector(conditioned_question_hidden)], dim=-1
         )
         logits = self.output_projector(x.tanh())
-        return logits.squeeze() * headers_mask
+        return logits.squeeze().masked_fill(headers_mask != 1, -float("inf"))
 
 
 class WhereOperatorPredictor(SketchModule):
@@ -207,7 +208,7 @@ class WhereOperatorPredictor(SketchModule):
         )
         logits = self.output_projector(x.tanh())
         # Shape: (batch_size, max_num_headers, num_op)
-        return logits * headers_mask.unsqueeze(-1)
+        return logits.masked_fill(headers_mask.unsqueeze(-1) != 1, -float("inf"))
 
 
 class WhereValuePredictor(SketchModule):
@@ -221,6 +222,7 @@ class WhereValuePredictor(SketchModule):
 
     def forward(self, question_embedding: Tensor, headers_embeddings: Tensor, num_headers: List[int]):
         """
+        :param num_headers:
         :param question_embedding: (batch_size, sequence_length, embedding_dim)
         :param headers_embeddings: (batch_size, num_headers, embed_dim)
         :return (batch_size, num_headers, sequence_length), (batch_size, num_headers, sequence_length)
@@ -252,4 +254,4 @@ class WhereValuePredictor(SketchModule):
         )
         mask = headers_mask.unsqueeze(2) & question_mask.unsqueeze(1)
         pos_logits: Tensor = self.output_projector(x.tanh())
-        return (pos_logits * mask.unsqueeze(-1)).unbind(-1)
+        return (pos_logits.masked_fill(mask.unsqueeze(-1) != 1, -float("inf"))).unbind(-1)

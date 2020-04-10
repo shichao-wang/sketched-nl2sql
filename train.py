@@ -1,10 +1,10 @@
-import importlib
+import logging
 
 import sketched_nl2sql
 from torchnlp.config import Config
 
-importlib.reload(sketched_nl2sql.dataset)
 DATA_PATH = "/Users/chaoftic/Public/数据集/WikiSQL"
-config = Config(pretrained_model_name="/Users/chaoftic/Public/bert-base-uncased", hidden_dim=300)
+config = Config(pretrained_model_name="/Users/chaoftic/Public/bert-base-uncased", hidden_dim=300, batch_size=32)
 
-sketched_nl2sql.train(DATA_PATH, "save", config, 1234)
+logging.basicConfig(filename="wikisql.log", level=logging.DEBUG)
+sketched_nl2sql.train(DATA_PATH, "save", config)

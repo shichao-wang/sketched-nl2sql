@@ -44,7 +44,7 @@ class SketchedTextToSql(nn.Module):
     def from_config(cls, vocab, config: Config):
         """ create model from config """
         embedder = AutoModel.from_pretrained(config.get("pretrained_model_name"))
-        return cls(vocab, embedder, config.get("hidden_dim"), num_agg_op=6, num_conds=4, num_op=4)
+        return cls(vocab, embedder, config.get("hidden_dim"), num_agg_op=6, num_conds=5, num_op=4)
 
     def forward(self, question_tokens: Tensor, headers_tokens: Tensor, num_headers: List[int]) -> Tuple[Tensor, ...]:
         """ forward """
@@ -82,18 +82,20 @@ class SketchedTextToSql(nn.Module):
         :param num_headers: [batch_size]
         :return:
         """
+        device = question_tokens.device
         batch_size = len(num_headers)
         unpacked_headers_tokens = headers_tokens.split(num_headers)
         tensors = []
         segments = []
         for b in range(batch_size):
-            tensor = [torch.as_tensor((self.vocab.cls_index,))]
+
+            tensor = [torch.as_tensor((self.vocab.cls_index,), device=device)]
             segment = [self.CLS_SEG]
 
             for h_tokens in unpacked_headers_tokens[b]:  # type: Tensor
                 tensor.append(h_tokens.masked_select(h_tokens != 0))
                 segment.extend([self.H_SEG] * len(tensor[-1]))
-                tensor.append(torch.as_tensor((self.vocab.sep_index,)))
+                tensor.append(torch.as_tensor((self.vocab.sep_index,), device=device))
                 segment.extend([self.SEP_SEG])
 
             tensor.append(question_tokens[b].masked_select(question_tokens[b] != 0))

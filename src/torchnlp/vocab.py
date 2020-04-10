@@ -32,7 +32,7 @@ class Vocab(PytorchStateMixin, Collection[str]):
     def __setup_attribute_tokens(self, attribute_tokens: Dict[str, str]):
         """ expose """
         # expose attribute_tokens
-        self.__attribute_tokens = []
+        self.__attribute_tokens = attribute_tokens
         missing_tokens = []
         for token_attr, token in attribute_tokens.items():
             # only token that end with '_token' will be exposed to vocabulary's attribute
@@ -45,7 +45,6 @@ class Vocab(PytorchStateMixin, Collection[str]):
             index_attr = ATTR_TOKEN_REGEX.sub(r"\g<prefix>_index", token_attr)
             setattr(self, token_attr, token)
             setattr(self, index_attr, index)
-            self.__attribute_tokens.extend((token_attr, index_attr))
 
         if missing_tokens:
             logger.warning(missing_tokens)
@@ -64,6 +63,7 @@ class Vocab(PytorchStateMixin, Collection[str]):
         self._token2index = token2index
         self._index2token = {index: token for token, index in self._token2index.items()}
         self.__setup_attribute_tokens(attribute_tokens)
+        return self
 
     def __getattr__(self, attr):  # could not be find
         msg = "{attr} is not set, but accessed, you add {added}, forgot pass it to constructor?".format(
@@ -86,7 +86,7 @@ class Vocab(PytorchStateMixin, Collection[str]):
         return cls(token2index, **attr_tokens)
 
     @classmethod
-    def from_pretrained_tokenizer(cls, tokenizer: PreTrainedTokenizer, **attribute_tokens):
+    def from_pretrained_tokenizer(cls, tokenizer: PreTrainedTokenizer, **attribute_tokens: str):
         """ retrieve tokenizer from pretrained_tokenizer """
         tokenizer_tokens = {}
         for attr_name in tokenizer.SPECIAL_TOKENS_ATTRIBUTES:
@@ -110,7 +110,7 @@ class Vocab(PytorchStateMixin, Collection[str]):
 
     def map2index(self, tokens: Iterator[str]) -> List[int]:
         """ map """
-        return [self._token2index[token] for token in tokens]
+        return [self.item2index(token) for token in tokens]
 
     def map2item(self, indices: Iterator[int]) -> List[str]:
         """ unmap """
