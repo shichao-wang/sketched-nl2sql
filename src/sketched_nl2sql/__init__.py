@@ -1,1 +1,1 @@
-from sketched_nl2sql.api import *
+from sketched_nl2sql.executor import *

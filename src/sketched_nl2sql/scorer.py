@@ -11,13 +11,11 @@ def exact_accuracy(pred_example: Example, gold_example: Example):
     return pred_example.query == gold_example.query
 
 
-def logical_accuracy(pred_query_string: str, gold_query_string: str, db: sqlite3.Connection):
+def execution_accuracy(pred_query_string: str, gold_query_string: str, conn: sqlite3.Connection):
     """ logical match """
     try:
-        pred = db.execute(pred_query_string).fetchall()
-        gold = db.execute(gold_query_string).fetchall()
+        pred = conn.execute(pred_query_string).fetchall()
+        gold = conn.execute(gold_query_string).fetchall()
         return pred == gold
-    except BaseException:
+    except sqlite3.Error:
         return False
-
-    pass

@@ -39,7 +39,6 @@ class Engine(BaseEngine):
 
     def feed(self, input_batch, target_batch, update: bool = True):
         """ train model on this dataset """
-
         if update:
             self.model.train()
             self.optimizer.zero_grad()
