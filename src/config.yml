@@ -1,0 +1,14 @@
+# path
+pretrained_model_name: "/Users/chaoftic/Public/bert-base-uncased"
+checkpoint_file: "checkpoint.pt"
+data_path: "/Users/chaoftic/Public/数据集/WikiSQL"
+
+hidden_dim: 100
+num_layers: 2
+bidirectional: true
+dropout: 0.3
+
+# training settings
+batch_size: 16
+max_epoch: 10
+

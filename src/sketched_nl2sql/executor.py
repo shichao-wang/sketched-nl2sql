@@ -6,9 +6,9 @@ from os import path
 from typing import List
 
 import numpy
-from pytorch_transformers import AutoTokenizer
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+from transformers import AutoTokenizer
 
 import torchnlp.utils
 from sketched_nl2sql.dataset import collate_fn, Example, WikisqlDataset
@@ -39,13 +39,13 @@ def train(data_path: str, config: Config, checkpoint_path: str, *, resume: bool)
 
     train_set = WikisqlDataset(data_path, "train", tokenize=engine.tokenizer.tokenize)
     train_loader = DataLoader(
-        train_set, batch_size=config.get("batch_size"), shuffle=True, collate_fn=list, num_workers=4
+        train_set, batch_size=config.get("batch_size"), shuffle=True, collate_fn=list, num_workers=8
     )
     dev_set = WikisqlDataset(data_path, "dev", engine.tokenizer.tokenize)
-    dev_loader = DataLoader(dev_set, batch_size=config.get("batch_size"), collate_fn=list)
+    dev_loader = DataLoader(dev_set, batch_size=config.get("batch_size"), collate_fn=list, num_workers=8)
 
     test_set = WikisqlDataset(data_path, "test", engine.tokenizer.tokenize)
-    test_loader = DataLoader(dev_set, batch_size=config.get("batch_size"), collate_fn=list)
+    test_loader = DataLoader(dev_set, batch_size=config.get("batch_size"), collate_fn=list, num_workers=8)
 
     def evaluate(preds: List[Example], golds: List[Example], conn: sqlite3.Connection, log_false: bool = False):
         """ evaluate """
@@ -108,13 +108,13 @@ def train(data_path: str, config: Config, checkpoint_path: str, *, resume: bool)
 
     for epoch in range(1, config.get("max_epoch", 10) + 1):
         try:
-            train_epoch(epoch)
             train_logic_acc, train_exec_acc = evaluate_epoch(train_loader, "Evaluating on Training Set", "train.db")
             logger.info(f"Epoch: {epoch} Training Logic Acc: {train_logic_acc} Training Exec Acc: {train_exec_acc}")
             dev_logic_acc, dev_exec_acc = evaluate_epoch(dev_loader, "Evaluating on Development Set", "dev.db")
             logger.info(f"Epoch: {epoch} Development Logic Acc: {dev_logic_acc} Development Exec Acc: {dev_exec_acc}")
             test_logic_acc, test_exec_acc = evaluate_epoch(test_loader, "Evaluating on Testing Set", "test.db")
             logger.info(f"Epoch: {epoch} Testing Logic Acc: {test_logic_acc} Testing Exec Acc: {test_exec_acc}")
+            train_epoch(epoch)
         except BaseException:
             engine.save_checkpoint(checkpoint_path)
             logger.info("Saved on Exception")

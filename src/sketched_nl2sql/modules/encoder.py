@@ -1,16 +1,30 @@
 from typing import Tuple
 
 import torch
-from torch import nn, Tensor
+from torch import nn
 from torch.nn.utils import rnn
 
 
 class LSTMEncoder(nn.Module):
     """ wrapper class for lstm"""
 
-    def __init__(self, input_dim: int, output_dim: int, num_layers: int = 1, batch_first=True):
+    def __init__(
+        self,
+        input_dim: int,
+        output_dim: int,
+        bidirectional: bool,
+        num_layers: int,
+        dropout: float = 0.0,
+        batch_first=True,
+    ):
         super().__init__()
-        self.lstm = nn.LSTM(input_dim, output_dim, num_layers, batch_first=batch_first)
+        if bidirectional:
+            assert output_dim & 1 == 0  # odd
+            output_dim //= 2
+
+        self.lstm = nn.LSTM(
+            input_dim, output_dim, num_layers, batch_first=batch_first, dropout=dropout, bidirectional=bidirectional
+        )
 
     def forward(
         self, embedding: torch.Tensor, mask: torch.Tensor
@@ -22,24 +36,10 @@ class LSTMEncoder(nn.Module):
         """
         lengths = (mask != 0).sum(dim=1)
         packed_sequence = rnn.pack_padded_sequence(embedding, lengths, batch_first=True, enforce_sorted=False)
-        packed_encoder_output, (last_hidden_state, last_cell_state) = self.lstm(
+        packed_encoder_output, last_state = self.lstm(
             packed_sequence
-        )  # type: rnn.PackedSequence, (torch.Tensor, torch.Tensor)
+        )  # type: rnn.PackedSequence, Tuple[torch.Tensor, torch.Tensor]
+        num_directions = 2 if self.lstm.bidirectional else 1
+
         padded_encoder_output, lengths = rnn.pad_packed_sequence(packed_encoder_output, batch_first=True)
-        # CHECK(Shichao Wang): Someone said if rnn is bidirectional reversed hidden in unpacked tensors is wrong
-        return padded_encoder_output, (last_hidden_state.transpose(0, 1), last_cell_state.transpose(0, 1))
-
-
-class HeadersEncoder(nn.Module):
-    """ headers encoder """
-
-    def __init__(self, input_dim: int, hidden_dim: int):
-        super().__init__()
-        self.inner_encoder = LSTMEncoder(input_dim, hidden_dim)
-
-    def forward(self, headers_embeddings: Tuple[Tensor, ...]):
-        """
-        :param headers_embeddings: [batch_size, (num_headers, max_header_tokens, embedding_dim)]
-        :return:
-        """
-
+        return padded_encoder_output, last_state

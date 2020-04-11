@@ -28,23 +28,49 @@ class SketchedTextToSql(nn.Module):
     SEP_SEG = 4
 
     def __init__(
-        self, vocab: Vocab, embedder: nn.Module, hidden_dim: int, *, num_agg_op: int, num_conds: int, num_op: int
+        self,
+        vocab: Vocab,
+        embedder: nn.Module,
+        select_column_predictor: SelectPredictor,
+        select_aggregator_predictor: AggregatorPredictor,
+        where_num_predictor: WhereNumPredictor,
+        where_column_predictor: WhereColumnPredictor,
+        where_operator_predictor: WhereOperatorPredictor,
+        where_value_predictor: WhereValuePredictor,
     ):
         super().__init__()
         self.vocab = vocab
         self.embedder = embedder
-        self.select_predictor = SelectPredictor(embedder.config.hidden_size, hidden_dim)
-        self.aggregator_predictor = AggregatorPredictor(embedder.config.hidden_size, hidden_dim, num_agg_op)
-        self.where_number_predictor = WhereNumPredictor(embedder.config.hidden_size, hidden_dim, num_conds)
-        self.where_column_predictor = WhereColumnPredictor(embedder.config.hidden_size, hidden_dim)
-        self.where_operator_predictor = WhereOperatorPredictor(embedder.config.hidden_size, hidden_dim, num_op)
-        self.where_value_position_predictor = WhereValuePredictor(embedder.config.hidden_size, hidden_dim, True)
+        self.scp = select_column_predictor
+        self.sap = select_aggregator_predictor
+        self.wnp = where_num_predictor
+        self.wcp = where_column_predictor
+        self.wop = where_operator_predictor
+        self.wvp = where_value_predictor
 
     @classmethod
     def from_config(cls, vocab, config: Config):
         """ create model from config """
         embedder = AutoModel.from_pretrained(config.get("pretrained_model_name"))
-        return cls(vocab, embedder, config.get("hidden_dim"), num_agg_op=6, num_conds=5, num_op=4)
+        num_agg_op = 6
+        num_conds = 5
+        num_op = 4
+        hidden_dim = config.get("hidden_dim")
+        bidirectional = config.get("bidirectional")
+        num_layers = config.get("num_layers")
+        dropout = config.get("dropout")
+        scp = SelectPredictor(embedder.config.hidden_size, hidden_dim, bidirectional, num_layers, dropout, True)
+        sap = AggregatorPredictor(
+            embedder.config.hidden_size, hidden_dim, num_agg_op, bidirectional, num_layers, dropout, True
+        )
+        wnp = WhereNumPredictor(embedder.config.hidden_size, hidden_dim, num_conds, bidirectional, num_layers, dropout)
+        wcp = WhereColumnPredictor(embedder.config.hidden_size, hidden_dim, bidirectional, num_layers, dropout, True)
+        wop = WhereOperatorPredictor(
+            embedder.config.hidden_size, hidden_dim, num_op, bidirectional, num_layers, dropout, True
+        )
+        wvp = WhereValuePredictor(embedder.config.hidden_size, hidden_dim, bidirectional, num_layers, dropout, True)
+
+        return cls(vocab, embedder, scp, sap, wnp, wcp, wop, wvp)
 
     def forward(self, question_tokens: Tensor, headers_tokens: Tensor, num_headers: List[int]) -> Tuple[Tensor, ...]:
         """ forward """
@@ -57,13 +83,13 @@ class SketchedTextToSql(nn.Module):
         with torch.no_grad():
             question_embedding, headers_embeddings = self.unpack_encoder_output(bert_embedding, bert_mask)
 
-        select_logits = self.select_predictor(question_embedding, headers_embeddings, num_headers)
-        agg_logits = self.aggregator_predictor(question_embedding, headers_embeddings, num_headers)
-        where_num_logits = self.where_number_predictor(question_embedding)
-        where_col_logits = self.where_column_predictor(question_embedding, headers_embeddings, num_headers)
-        where_op_logits = self.where_operator_predictor(question_embedding, headers_embeddings, num_headers)
-        value_start_logits, value_end_logits = self.where_value_position_predictor(
-            question_embedding, headers_embeddings, num_headers
+        select_logits = self.scp(question_embedding, headers_embeddings, num_headers)
+        agg_logits = self.sap(question_embedding, headers_embeddings, num_headers)
+        where_num_logits = self.wnp(question_embedding)  # type: Tensor
+        where_col_logits = self.wcp(question_embedding, headers_embeddings, num_headers)  # type: Tensor
+        where_op_logits = self.wop(question_embedding, headers_embeddings, num_headers)
+        value_start_logits, value_end_logits = self.wvp(
+            question_embedding, headers_embeddings, num_headers, where_num_logits, where_col_logits
         )
         return (
             select_logits,

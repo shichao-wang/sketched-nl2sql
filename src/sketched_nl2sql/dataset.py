@@ -29,11 +29,6 @@ class Query(NamedTuple):
     sel_col_id: int
     agg_id: int
     conds: Set[Cond]
-    # num_conds: int
-    # cond_col_ids: List[int]
-    # cond_op_ids: List[int]
-    # cond_value_starts: List[int]
-    # cond_value_ends: List[int]
 
 
 class Header(NamedTuple):
@@ -91,7 +86,7 @@ def load_wikisql(wiki_sql_data: str, tables_file: str, tokenize: Callable[[str],
             example = Example(question_tokens, named_headers[table_id], query)
             examples.append(example)
 
-    return named_headers, examples
+    return examples
 
 
 class WikisqlDataset(Dataset):
@@ -101,7 +96,7 @@ class WikisqlDataset(Dataset):
         # load data
         data_file = path.join(data_path, split) + ".jsonl"
         tables_file = path.join(data_path, split) + ".tables.jsonl"
-        self.headers, self.examples = load_wikisql(data_file, tables_file, tokenize)
+        self.examples = load_wikisql(data_file, tables_file, tokenize)
 
     def __getitem__(self, index):
         example = self.examples[index]
