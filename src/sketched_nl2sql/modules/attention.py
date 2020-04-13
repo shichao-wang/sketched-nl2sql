@@ -16,7 +16,11 @@ class ColumnAttention(nn.Module):
         self.w = nn.Linear(hidden_dim, hidden_dim)
 
     def forward(
-        self, question_encoding: Tensor, headers_hidden: Tensor, question_mask: Tensor, headers_mask: Tensor,
+        self,
+        question_encoding: Tensor,
+        headers_hidden: Tensor,
+        question_mask: Tensor,
+        headers_mask: Tensor,
     ) -> Tensor:
         """ compute start_attention mask and apply to question_hidden
         :param question_encoding: (batch_size, sequence_length, hidden_dim)
@@ -27,13 +31,21 @@ class ColumnAttention(nn.Module):
         """
 
         # Shape: (batch_size, header_num, sequence_length)
-        attention_weight = headers_hidden @ self.w(question_encoding).transpose(1, 2)
+        attention_weight = headers_hidden @ self.w(
+            question_encoding
+        ).transpose(1, 2)
         # add penalty on padding
-        attention_weight = attention_weight.masked_fill(headers_mask.unsqueeze(-1), -float("inf"))
-        attention_weight = attention_weight.masked_fill(question_mask.unsqueeze(1), -float("inf"))
+        attention_weight = attention_weight.masked_fill(
+            headers_mask.unsqueeze(-1), -float("inf")
+        )
+        attention_weight = attention_weight.masked_fill(
+            question_mask.unsqueeze(1), -float("inf")
+        )
         attention_weight = attention_weight.softmax(dim=-1)
         # defending replace nan to 0, those place with nan should not be used
-        attention_weight = attention_weight.masked_fill(torch.isnan(attention_weight), 0)
+        attention_weight = attention_weight.masked_fill(
+            torch.isnan(attention_weight), 0
+        )
         return attention_weight
 
 
@@ -43,7 +55,12 @@ class LuongAttention(nn.Module):
     def __init__(self, hidden_dim: int):
         super().__init__()
 
-    def forward(self, current_hidden: Tensor, source_states: Tensor, source_mask: Tensor = None) -> Tensor:
+    def forward(
+        self,
+        current_hidden: Tensor,
+        source_states: Tensor,
+        source_mask: Tensor = None,
+    ) -> Tensor:
         """
         :param current_hidden: (batch_size, 1, hidden_dim)
         :param source_states: (batch_size, source_length, hidden_dim)
@@ -57,7 +74,3 @@ class LuongAttention(nn.Module):
         align_score[source_mask == 0] = -float("inf")  # penalty on pad token
         attention_weight = align_score.softmax(dim=-1)
         return attention_weight
-        # Shape: (batch_size, 1, hidden_dim)
-        # context = attention_weight.transpose(1, 2) @ source_states
-        # x = self.start_output_projector(torch.cat([context, current_hidden], dim=-1))
-        # return x

@@ -1,10 +1,14 @@
+""" Engine
+Engine is a wrapper for model and represent minimal checkpoint unit.
+All the things used when inferencing should be in engine
+"""
 import logging
 from os import path
 from typing import Dict
 
 import torch
 from torch import nn
-from torch.optim.optimizer import Optimizer
+from torch.optim import Optimizer
 from typing_extensions import Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -44,10 +48,10 @@ class Engine:
         """ feed a batch of data to model """
         raise NotImplementedError()
 
-    def predict(self, data):
+    @torch.no_grad()
+    def predict(self, input_batch):
         """ run inference for model """
-        msg = f"method predict is not implemented but called"
-        raise NotImplementedError(msg)
+        raise NotImplementedError(f"method predict is not implemented but called")
 
     def save_checkpoint(self, checkpoint_file: str):
         """ save checkpoint """
@@ -73,7 +77,7 @@ class Engine:
 
 
 @runtime_checkable
-class PytorchStateMixin(Protocol):
+class PytorchStateMixin(Protocol):  # pylint: disable=inherit-non-class
     """ pytorch state dict protocol"""
 
     def state_dict(self):

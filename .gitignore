@@ -3,3 +3,7 @@
 /lib/
 __pycache__/
 .DS_Store
+.mypy_cache/
+.env
+/saved_models/
+/.vscode/

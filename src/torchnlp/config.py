@@ -1,15 +1,19 @@
 """ config container """
-from numbers import Number
-from typing import Dict, Mapping, Union
 
-ConfigValueType = Union[Number, str]
+from typing import Dict, Mapping
 
 
-class Config(Dict[str, ConfigValueType]):
+class Config(Dict):
     """ config """
 
-    def __init__(self, mapping: Mapping[str, ConfigValueType] = None, **kwargs):
-        super().__init__(**mapping or {}, **kwargs)
+    def __init__(self, mapping: Mapping = None, **kwargs):
+        mapping = mapping or {}
+        super().__init__(**mapping, **kwargs)
+
+    def get_int(self, item) -> int:
+        value = self.get(item)
+        assert isinstance(value, int)
+        return int(value)
 
     @classmethod
     def from_yaml(cls, yaml_file: str):
@@ -19,7 +23,3 @@ class Config(Dict[str, ConfigValueType]):
         with open(yaml_file, encoding="utf-8") as fp:
             content = yaml.load(fp, yaml.FullLoader)
         return cls(content)
-
-
-# class HierarchicalConfig(Dict[str, Union[ConfigValueType, "HierarchicalConfig"]]):
-#     pass

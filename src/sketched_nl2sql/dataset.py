@@ -1,8 +1,9 @@
+""" Dataset module """
 import json
 import re
 from operator import itemgetter
 from os import path
-from typing import Callable, Dict, List, NamedTuple, Set, Union
+from typing import Callable, Dict, List, NamedTuple, Set
 
 import torch
 from torch import Tensor
@@ -52,34 +53,41 @@ class Example(NamedTuple):
 
 def remove_unicode(line: str):
     """ remove """
-    return re.sub(r"(?P<unicode>\\u\w{4})(?P<digital>\d+)", r"\g<unicode> \g<digital>", line)
+    return re.sub(
+        r"(?P<unicode>\\u\w{4})(?P<digital>\d+)",
+        r"\g<unicode> \g<digital>",
+        line,
+    )
 
 
-def load_wikisql(wiki_sql_data: str, tables_file: str, tokenize: Callable[[str], List[str]]):
+def load_wikisql(
+    wiki_sql_data: str, tables_file: str, tokenize: Callable[[str], List[str]]
+):
     """ main load function """
     named_headers: Dict[str, Header] = {}
     with open(tables_file) as fp:
         for data in tqdm(map(json.loads, fp), desc="Reading Tables File"):
             table_id: str = data["id"]
-            named_headers[table_id] = Header(table_id, [tokenize(col) for col in data["header"]], data["types"])
+            named_headers[table_id] = Header(
+                table_id,
+                [tokenize(col) for col in data["header"]],
+                data["types"],
+            )
     examples = []
     with open(wiki_sql_data) as fp:
         for table_id, question, sql in tqdm(
-            map(itemgetter("table_id", "question", "sql"), map(json.loads, map(remove_unicode, fp))),
+            map(
+                itemgetter("table_id", "question", "sql"),
+                map(json.loads, map(remove_unicode, fp)),
+            ),
             desc="Reading Dataset",
         ):  # type: str, str, Dict
             question_tokens = tokenize(question)
-
-            col_ids, op_ids, value_starts, value_ends = [], [], [], []
             conds = set()
             for cond in sql["conds"]:
                 col_id, op_id, value = cond
                 value_tokens = tokenize(str(value))
                 start, end = find_value_position(question_tokens, value_tokens)
-                # col_ids.append(col_id)
-                # op_ids.append(op_id)
-                # value_starts.append(start)
-                # value_ends.append(end)
                 conds.add(Cond(col_id, op_id, start, end))
 
             query = Query(sql["sel"], sql["agg"], conds)
@@ -92,7 +100,9 @@ def load_wikisql(wiki_sql_data: str, tables_file: str, tokenize: Callable[[str],
 class WikisqlDataset(Dataset):
     """ wikisql dataset """
 
-    def __init__(self, data_path: str, split: str, tokenize: Callable[[str], List[str]]):
+    def __init__(
+        self, data_path: str, split: str, tokenize: Callable[[str], List[str]]
+    ):
         # load data
         data_file = path.join(data_path, split) + ".jsonl"
         tables_file = path.join(data_path, split) + ".tables.jsonl"
@@ -106,19 +116,28 @@ class WikisqlDataset(Dataset):
         return len(self.examples)
 
 
-def collate_fn(vocab: Vocab, device: Union[torch.device, str]):
+def collate_fn(vocab: Vocab, device: torch.device):
     """ wikisql collate function """
 
     def _collate(examples: List[Example]):
-        questions_tokens, headers, queries = zip(*examples)  # type: List[List[str]], List[Header], List[Query]
+        questions_tokens, headers, queries = zip(
+            *examples
+        )  # type: List[List[str]], List[Header], List[Query]
         questions_tensor = rnn.pad_sequence(
-            [torch.as_tensor(vocab.map2index(tokens), dtype=torch.long, device=device) for tokens in questions_tokens],
+            [
+                torch.as_tensor(
+                    vocab.map2index(tokens), dtype=torch.long, device=device
+                )
+                for tokens in questions_tokens
+            ],
             batch_first=True,
             padding_value=vocab.pad_index,
         )  # type: Tensor
         headers_tensor = rnn.pad_sequence(
             [
-                torch.as_tensor(vocab.map2index(tokens), dtype=torch.long, device=device)
+                torch.as_tensor(
+                    vocab.map2index(tokens), dtype=torch.long, device=device
+                )
                 for header in headers
                 for tokens in header.column_tokens
             ],
@@ -129,16 +148,44 @@ def collate_fn(vocab: Vocab, device: Union[torch.device, str]):
         sel_col_ids, agg_ids, conds_batch = zip(*queries)
         cond_col_ids, cond_col_ops, cond_starts, cond_ends = [], [], [], []
         for conds in conds_batch:
-            cond_col_ids.append(torch.as_tensor([cond.col_id for cond in conds], dtype=torch.long, device=device))
-            cond_col_ops.append(torch.as_tensor([cond.op_id for cond in conds], dtype=torch.long, device=device))
-            cond_starts.append(torch.as_tensor([cond.value_start for cond in conds], dtype=torch.long, device=device))
-            cond_ends.append(torch.as_tensor([cond.value_end for cond in conds], dtype=torch.long, device=device))
+            cond_col_ids.append(
+                torch.as_tensor(
+                    [cond.col_id for cond in conds],
+                    dtype=torch.long,
+                    device=device,
+                )
+            )
+            cond_col_ops.append(
+                torch.as_tensor(
+                    [cond.op_id for cond in conds],
+                    dtype=torch.long,
+                    device=device,
+                )
+            )
+            cond_starts.append(
+                torch.as_tensor(
+                    [cond.value_start for cond in conds],
+                    dtype=torch.long,
+                    device=device,
+                )
+            )
+            cond_ends.append(
+                torch.as_tensor(
+                    [cond.value_end for cond in conds],
+                    dtype=torch.long,
+                    device=device,
+                )
+            )
         return (
             (questions_tensor, headers_tensor, header_lengths),
             (
                 torch.as_tensor(sel_col_ids, dtype=torch.long, device=device),
                 torch.as_tensor(agg_ids, dtype=torch.long, device=device),
-                torch.as_tensor([len(conds) for conds in conds_batch], dtype=torch.long, device=device),
+                torch.as_tensor(
+                    [len(conds) for conds in conds_batch],
+                    dtype=torch.long,
+                    device=device,
+                ),
                 cond_col_ids,
                 cond_col_ops,
                 cond_starts,
@@ -156,7 +203,16 @@ def similar(token1: str, token2: str):
 
 def find_value_position(question_tokens: List[str], value_tokens: List[str]):
     length = len(value_tokens)
-    for index in (index for index, t in enumerate(question_tokens) if similar(t, value_tokens[0])):
-        if all(similar(q, v) for q, v in zip(question_tokens[index : index + length], value_tokens)):
+    for index in (
+        index
+        for index, t in enumerate(question_tokens)
+        if similar(t, value_tokens[0])
+    ):
+        if all(
+            similar(q, v)
+            for q, v in zip(
+                question_tokens[index : index + length], value_tokens
+            )
+        ):
             return index, index + length - 1
     raise ValueError(question_tokens + ["\n"] + value_tokens)

@@ -108,11 +108,11 @@ class Vocab(PytorchStateMixin, Collection[str]):
         """ convert index to token """
         return self._index2token[index]
 
-    def map2index(self, tokens: Iterator[str]) -> List[int]:
+    def map2index(self, tokens: Iterable[str]) -> List[int]:
         """ map """
         return [self.item2index(token) for token in tokens]
 
-    def map2item(self, indices: Iterator[int]) -> List[str]:
+    def map2item(self, indices: Iterable[int]) -> List[str]:
         """ unmap """
         return [self.index2item(index) for index in indices]
 
@@ -124,7 +124,7 @@ class Vocab(PytorchStateMixin, Collection[str]):
         return len(self._index2token)
 
     def __iter__(self) -> Iterator[str]:
-        pass
+        return iter(self._token2index)
 
     def __contains__(self, token: object) -> bool:
         return isinstance(token, str) and token in self._token2index

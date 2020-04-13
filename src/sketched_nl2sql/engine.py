@@ -1,6 +1,8 @@
+""" skectched nl2sql engine """
 import logging
+import sys
 from operator import attrgetter
-from typing import Tuple, TypeVar
+from typing import Tuple
 
 import torch
 from torch import optim, Tensor
@@ -14,8 +16,6 @@ from torchnlp.vocab import Vocab
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
-
 
 class Engine(BaseEngine):
     """ engine manipulate model
@@ -25,14 +25,19 @@ class Engine(BaseEngine):
     CKPT_ATTRS = ["model", "optimizer", "vocab", "tokenizer"]
 
     def __init__(
-        self, config: Config, tokenizer, vocab: Vocab, device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        self,
+        config: Config,
+        tokenizer,
+        vocab: Vocab,
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         self.config = config
         self.tokenizer = tokenizer
         self.vocab = vocab
         model = SketchedTextToSql.from_config(self.vocab, config)
         optimizer = optim.Adam(
-            filter(attrgetter("requires_grad"), model.parameters()), lr=config.get("learning_rate", 1e-3)
+            filter(attrgetter("requires_grad"), model.parameters()),
+            lr=config.get("learning_rate", 1e-3),
         )
         criterion = QueryLoss()
         super().__init__(model, optimizer, criterion, device)
@@ -59,7 +64,7 @@ class Engine(BaseEngine):
     def predict(self, input_batch):
         """ predict """
         self.model.eval()
-        questions_tensor, headers_tensor, header_lengths = input_batch
+        header_lengths = input_batch[2]
         logits = self.model(*input_batch)  # type: Tuple[Tensor, ...]
         (
             sel_logits,
@@ -80,14 +85,22 @@ class Engine(BaseEngine):
             conds = set()
             if cond_cols:
                 cond_ops = where_op_logits[b, cond_cols].argmax(dim=1).tolist()
-                cond_starts = where_start_logits[b, cond_cols].argmax(dim=1).tolist()
-                cond_ends = where_end_logits[b, cond_cols].argmax(dim=1).tolist()
+                cond_starts = (
+                    where_start_logits[b, cond_cols].argmax(dim=1).tolist()
+                )
+                cond_ends = (
+                    where_end_logits[b, cond_cols].argmax(dim=1).tolist()
+                )
                 conds = {
                     Cond(col, op, start, end)
-                    for col, op, start, end in zip(cond_cols, cond_ops, cond_starts, cond_ends)
+                    for col, op, start, end in zip(
+                        cond_cols, cond_ops, cond_starts, cond_ends
+                    )
                 }
 
-            query = Query(sel_col_id, agg_logits[b, sel_col_id].argmax().item(), conds)
+            query = Query(
+                sel_col_id, agg_logits[b, sel_col_id].argmax().item(), conds
+            )
             pred_queries.append(query)
 
         return pred_queries
@@ -120,7 +133,11 @@ class Engine(BaseEngine):
                     value = "''"
             else:
                 raise ValueError()
-            return "{col} {op} {value}".format(col=column_name(cond.col_id), op=COND_OPS[cond.op_id], value=value)
+            return "{col} {op} {value}".format(
+                col=column_name(cond.col_id),
+                op=COND_OPS[cond.op_id],
+                value=value,
+            )
 
         query_string = "SELECT {agg_op}({sel}) FROM {table_name}".format(
             agg_op=AGG_OPS[example.query.agg_id],
@@ -128,7 +145,9 @@ class Engine(BaseEngine):
             table_name=table_name(example.header.table_id),
         )
         if example.query.conds:
-            conds_string = [build_condition(cond) for cond in example.query.conds]
+            conds_string = [
+                build_condition(cond) for cond in example.query.conds
+            ]
             query_string += " WHERE " + " AND ".join(conds_string)
         return query_string
 
@@ -149,12 +168,14 @@ class Engine(BaseEngine):
     def from_checkpoint(cls, config: Config, checkpoint_file: str):
         """ reload to checkpoint """
         try:
-            state_dict = torch.load(checkpoint_file, lambda storage, location: storage)
+            state_dict = torch.load(
+                checkpoint_file, lambda storage, location: storage
+            )
             vocab = Vocab().load_state_dict(state_dict["vocab"])
             engine = cls(config, state_dict["tokenizer"], vocab)
             engine.model.load_state_dict(state_dict["model"])
             engine.optimizer.load_state_dict(state_dict["optimizer"])
             return engine
-        except BaseException as e:
-            logger.error("cannot load model", e)
-            exit(1)
+        except BaseException as ex:
+            logger.error(f"Cannot Load Model", exec_info=ex)
+            sys.exit(1)

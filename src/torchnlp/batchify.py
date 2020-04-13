@@ -31,7 +31,9 @@ def sequences(padding_value: int = 0) -> Batchifier:
     """ pad sequences"""
 
     def _batchify(sequences_: List[Tensor]):
-        return rnn.pad_sequence(sequences_, batch_first=True, padding_value=padding_value)
+        return rnn.pad_sequence(
+            sequences_, batch_first=True, padding_value=padding_value
+        )
 
     return _batchify
 
@@ -60,7 +62,10 @@ def dicts(batchifiers: Dict[str, Batchifier], **named_batchifiers: Batchifier):
 
     def _batchify(dicts_: List[Dict[str, Tensor]]):
         assert len(dicts_) == len(dict_batchifiers)
-        return {key: batchifier(d[key] for d in dicts_) for key, batchifier in dict_batchifiers.items()}
+        return {
+            key: batchifier(d[key] for d in dicts_)
+            for key, batchifier in dict_batchifiers.items()
+        }
 
 
 def namedtuples(container, batchifiers: Dict[str, Batchifier]):
@@ -69,5 +74,8 @@ def namedtuples(container, batchifiers: Dict[str, Batchifier]):
 
     def _batchify(named_tuples_: List[NamedTuple]):
         return container(
-            **{key: batchifier(getattr(d, key) for d in named_tuples_) for key, batchifier in batchifiers.items()}
+            **{
+                key: batchifier(getattr(d, key) for d in named_tuples_)
+                for key, batchifier in batchifiers.items()
+            }
         )

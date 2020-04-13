@@ -5,16 +5,14 @@ import numpy
 import torch
 
 
-def set_random_seed(seed: int = None):
+def set_random_seed(seed: int):
     """ set random state"""
-    if not seed:
-        return
     torch.manual_seed(seed)
     numpy.random.seed(seed)
     random.seed(seed)
     if torch.cuda.is_available():
         # noinspection PyUnresolvedReferences
-        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed(seed)  # type: ignore
 
 
 def move_to_device(data, device: str):
@@ -23,7 +21,7 @@ def move_to_device(data, device: str):
         return data.to(device)
     elif isinstance(data, List):
         return [move_to_device(d, device) for d in data]
-    elif isinstance(data, Tuple):
+    elif isinstance(data, tuple):
         return tuple(move_to_device(d, device) for d in data)
     elif isinstance(data, Dict):
         return {key: move_to_device(value, device) for key, value in data.items()}

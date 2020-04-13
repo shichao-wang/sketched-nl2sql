@@ -1,7 +1,8 @@
 # path
-pretrained_model_name: "/Users/chaoftic/Public/bert-base-uncased"
-checkpoint_file: "checkpoint.pt"
-data_path: "/Users/chaoftic/Public/数据集/WikiSQL"
+pretrained_model_name: "bert-base-uncased"
+pretrained_cache_dir: "/home/shichao/share/pretrained_model"
+checkpoint_file: "/home/shichao/project/sketched-nl2sql/saved_models/checkpoint.pt"
+data_path: "/home/shichao/share/dataset/wikisql"
 
 hidden_dim: 100
 num_layers: 2
@@ -9,6 +10,7 @@ bidirectional: true
 dropout: 0.3
 
 # training settings
-batch_size: 16
+batch_size: 32
 max_epoch: 10
 
+seed: 1234

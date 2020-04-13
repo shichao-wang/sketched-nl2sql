@@ -26,7 +26,7 @@ class SketchedTextToSql(nn.Module):
     H_SEG = 2
     CLS_SEG = 3
     SEP_SEG = 4
-
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         vocab: Vocab,
@@ -51,7 +51,9 @@ class SketchedTextToSql(nn.Module):
     @classmethod
     def from_config(cls, vocab, config: Config):
         """ create model from config """
-        embedder = AutoModel.from_pretrained(config.get("pretrained_model_name"))
+        embedder = AutoModel.from_pretrained(
+            config.get("pretrained_model_name"), cache_dir=config.get("pretrained_cache_dir", None)
+        )
         num_agg_op = 6
         num_conds = 5
         num_op = 4
@@ -72,7 +74,9 @@ class SketchedTextToSql(nn.Module):
 
         return cls(vocab, embedder, scp, sap, wnp, wcp, wop, wvp)
 
-    def forward(self, question_tokens: Tensor, headers_tokens: Tensor, num_headers: List[int]) -> Tuple[Tensor, ...]:
+    def forward(  # pylint: disable=arguments-differ
+        self, question_tokens: Tensor, headers_tokens: Tensor, num_headers: List[int]
+    ) -> Tuple[Tensor, ...]:
         """ forward """
         with torch.no_grad():
             bert_inputs, bert_mask = self.pack_bert_input(question_tokens, headers_tokens, num_headers)
