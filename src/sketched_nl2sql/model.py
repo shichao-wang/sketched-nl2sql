@@ -2,18 +2,16 @@
 from typing import List, Tuple
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.nn.utils import rnn
 from transformers import AutoModel
 
-from sketched_nl2sql.modules.query_predictor import (
-    AggregatorPredictor,
-    SelectPredictor,
-    WhereColumnPredictor,
-    WhereNumPredictor,
-    WhereOperatorPredictor,
-    WhereValuePredictor,
-)
+from sketched_nl2sql.modules.query_predictor import (AggregatorPredictor,
+                                                     SelectPredictor,
+                                                     WhereColumnPredictor,
+                                                     WhereNumPredictor,
+                                                     WhereOperatorPredictor,
+                                                     WhereValuePredictor)
 from torchnlp.config import Config
 from torchnlp.vocab import Vocab
 

@@ -5,9 +5,9 @@ from operator import attrgetter
 from typing import Tuple
 
 import torch
-from torch import optim, Tensor
+from torch import Tensor, optim
 
-from sketched_nl2sql.dataset import AGG_OPS, Cond, COND_OPS, Example, Query
+from sketched_nl2sql.dataset import AGG_OPS, COND_OPS, Cond, Example, Query
 from sketched_nl2sql.model import SketchedTextToSql
 from sketched_nl2sql.modules.loss import QueryLoss
 from torchnlp.config import Config

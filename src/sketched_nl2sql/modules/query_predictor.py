@@ -3,7 +3,7 @@ import abc
 from typing import List
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.nn.utils import rnn
 
 from sketched_nl2sql.modules import nn_utils

@@ -2,7 +2,7 @@
 from typing import List, Tuple
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.nn import functional as f
 
 

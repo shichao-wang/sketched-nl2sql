@@ -1,7 +1,7 @@
 import logging
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 
 from sketched_nl2sql.modules import nn_utils
 

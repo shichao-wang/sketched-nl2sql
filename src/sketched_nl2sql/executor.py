@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 import torchnlp.utils
-from sketched_nl2sql.dataset import collate_fn, Example, WikisqlDataset
+from sketched_nl2sql.dataset import Example, WikisqlDataset, collate_fn
 from sketched_nl2sql.engine import Engine
 from torchnlp.config import Config
 from torchnlp.vocab import Vocab

@@ -18,7 +18,12 @@ def parse_args():
 def main(args):
     config = Config.from_yaml(args.config_file)
     logging.info(config)
-    sketched_nl2sql.train(config.get("data_path"), config, config.get("checkpoint_file"), resume=not args.retrain)
+    sketched_nl2sql.train(
+        config.get("data_path"),
+        config,
+        config.get("checkpoint_file"),
+        resume=not args.retrain,
+    )
 
 
 if __name__ == "__main__":
