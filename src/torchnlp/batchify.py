@@ -40,7 +40,7 @@ def sequences(padding_value: int = 0) -> Batchifier:
 
 def tuples(batchifier: Batchifier, *batchifiers: Batchifier) -> Batchifier:
     """ batchify tensors in tuples """
-    if isinstance(batchifier, (List, Tuple)):
+    if isinstance(batchifier, (list, tuple)):
         assert len(batchifiers) == 0
         tuple_batchifiers = batchifier
     else:

@@ -8,7 +8,7 @@ from typing import Dict
 
 import torch
 from torch import nn
-from torch.optim import Optimizer
+from torch.optim import Optimizer  # type: ignore
 from typing_extensions import Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,13 @@ class Engine:
 
     CKPT_ATTRS = ["model", "optimizer"]
 
-    def __init__(self, model: nn.Module, optimizer: Optimizer, criterion: nn.Module, device: str):
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: Optimizer,
+        criterion: nn.Module,
+        device: str,
+    ):
         self.model = model
         self.optimizer = optimizer
         self.criterion = criterion
@@ -36,13 +42,17 @@ class Engine:
             if attr is None:
                 logger.warning(f"Redundant checkpoint attribute: {name}")
             elif isinstance(attr, PytorchStateMixin) or (
-                hasattr(attr, "__getstate__") and hasattr(attr, "__setstate__"),
+                hasattr(attr, "__getstate__")
+                and hasattr(attr, "__setstate__"),
             ):
                 continue
             else:
                 invalid_attrs.append(name)
         if invalid_attrs:
-            raise AttributeError(f"Attributes: {invalid_attrs} does not support `state_dict` or `load_state_dict`")
+            raise AttributeError(
+                f"Attributes: {invalid_attrs} "
+                f"does not support `state_dict` or `load_state_dict`"
+            )
 
     def feed(self, input_batch, target_batch, update: bool = True):
         """ feed a batch of data to model """
@@ -51,7 +61,9 @@ class Engine:
     @torch.no_grad()
     def predict(self, input_batch):
         """ run inference for model """
-        raise NotImplementedError(f"method predict is not implemented but called")
+        raise NotImplementedError(
+            f"method predict is not implemented but called"
+        )
 
     def save_checkpoint(self, checkpoint_file: str):
         """ save checkpoint """
@@ -64,16 +76,6 @@ class Engine:
 
         logger.info(f"Saving checkpoint to {path.abspath(checkpoint_file)}")
         torch.save(checkpoint, checkpoint_file)
-
-    # @classmethod
-    # def from_checkpoint(cls, checkpoint_file: str):
-    #     """ load checkpoint to engine
-    #     NOTICE this method requires
-    #     """
-    #     logger.info(f"Loading checkpoint from: {path.abspath(checkpoint_file)}")
-    #     checkpoint = torch.load(checkpoint_file, lambda storage, location: storage)
-    #     for ckpt_attr in cls.CKPT_ATTRS:
-    #         setattr(self, ckpt_attr, checkpoint[ckpt_attr])
 
 
 @runtime_checkable

@@ -48,7 +48,7 @@ class Example(NamedTuple):
 
     question_tokens: List[str]
     header: Header
-    query: Query = None
+    query: Query
 
 
 def remove_unicode(line: str):
@@ -67,11 +67,9 @@ def load_wikisql(
     named_headers: Dict[str, Header] = {}
     with open(tables_file) as fp:
         for data in tqdm(map(json.loads, fp), desc="Reading Tables File"):
-            table_id: str = data["id"]
-            named_headers[table_id] = Header(
-                table_id,
-                [tokenize(col) for col in data["header"]],
-                data["types"],
+            tid: str = data["id"]
+            named_headers[tid] = Header(
+                tid, [tokenize(col) for col in data["header"]], data["types"],
             )
     examples = []
     with open(wiki_sql_data) as fp:

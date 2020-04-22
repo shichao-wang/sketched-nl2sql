@@ -24,6 +24,8 @@ def move_to_device(data, device: str):
     elif isinstance(data, tuple):
         return tuple(move_to_device(d, device) for d in data)
     elif isinstance(data, Dict):
-        return {key: move_to_device(value, device) for key, value in data.items()}
+        return {
+            key: move_to_device(value, device) for key, value in data.items()
+        }
     else:
         raise ValueError("receives {}".format(type(data)))
