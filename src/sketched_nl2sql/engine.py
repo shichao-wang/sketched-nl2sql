@@ -50,7 +50,7 @@ class Engine(BaseEngine):
         else:
             self.model.eval()
 
-        logits = self.model(*input_batch)
+        logits = self.model(*input_batch, target_batch)
         loss = self.criterion(logits, target_batch)
 
         if update:
@@ -84,12 +84,16 @@ class Engine(BaseEngine):
             cond_cols = where_col_logits[b].topk(pred_num[b])[1].tolist()
             conds = set()
             if cond_cols:
-                cond_ops = where_op_logits[b, cond_cols].argmax(dim=1).tolist()
+                cond_ops = (
+                    where_op_logits[b, : pred_num[b]].argmax(dim=-1).tolist()
+                )
                 cond_starts = (
-                    where_start_logits[b, cond_cols].argmax(dim=1).tolist()
+                    where_start_logits[b, : pred_num[b]]
+                    .argmax(dim=-1)
+                    .tolist()
                 )
                 cond_ends = (
-                    where_end_logits[b, cond_cols].argmax(dim=1).tolist()
+                    where_end_logits[b, : pred_num[b]].argmax(dim=1).tolist()
                 )
                 conds = {
                     Cond(col, op, start, end)

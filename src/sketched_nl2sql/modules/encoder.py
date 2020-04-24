@@ -5,7 +5,7 @@ from torch import nn
 from torch.nn.utils import rnn
 
 
-class LSTMEncoder(nn.Module):
+class LSTM(nn.Module):
     """ wrapper class for lstm"""
 
     def __init__(
@@ -37,7 +37,8 @@ class LSTMEncoder(nn.Module):
         """
         :param embedding: (batch_size, sequence_length, embedding_dim)
         :param mask: (batch_size, sequence_length)
-        :return: (batch_size, sequence_length, hidden_dim * num_layers), (batch_size, hidden_dim * num_layers)
+        :return: (batch_size, sequence_length, hidden_dim * num_layers), 
+            (batch_size, hidden_dim * num_layers)
         """
         lengths = (mask != 0).sum(dim=1)
         packed_sequence = rnn.pack_padded_sequence(
@@ -46,7 +47,7 @@ class LSTMEncoder(nn.Module):
         packed_encoder_output, last_state = self.lstm(
             packed_sequence
         )  # type: rnn.PackedSequence, Tuple[torch.Tensor, torch.Tensor]
-        num_directions = 2 if self.lstm.bidirectional else 1
+        # num_directions = 2 if self.lstm.bidirectional else 1
 
         padded_encoder_output, lengths = rnn.pad_packed_sequence(
             packed_encoder_output, batch_first=True

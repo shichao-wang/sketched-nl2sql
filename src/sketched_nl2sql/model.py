@@ -6,12 +6,14 @@ from torch import Tensor, nn
 from torch.nn.utils import rnn
 from transformers import AutoModel
 
-from sketched_nl2sql.modules.query_predictor import (AggregatorPredictor,
-                                                     SelectPredictor,
-                                                     WhereColumnPredictor,
-                                                     WhereNumPredictor,
-                                                     WhereOperatorPredictor,
-                                                     WhereValuePredictor)
+from sketched_nl2sql.modules.query_predictor import (
+    AggregatorPredictor,
+    SelectPredictor,
+    WhereColumnPredictor,
+    WhereNumPredictor,
+    WhereOperatorPredictor,
+    WhereValuePredictor,
+)
 from torchnlp.config import Config
 from torchnlp.vocab import Vocab
 
@@ -88,6 +90,7 @@ class SketchedTextToSql(nn.Module):
         wcp = WhereColumnPredictor(
             embedder.config.hidden_size,
             hidden_dim,
+            num_conds,
             bidirectional,
             num_layers,
             dropout,
@@ -97,6 +100,7 @@ class SketchedTextToSql(nn.Module):
             embedder.config.hidden_size,
             hidden_dim,
             num_op,
+            num_conds,
             bidirectional,
             num_layers,
             dropout,
@@ -105,6 +109,7 @@ class SketchedTextToSql(nn.Module):
         wvp = WhereValuePredictor(
             embedder.config.hidden_size,
             hidden_dim,
+            num_conds,
             bidirectional,
             num_layers,
             dropout,
@@ -118,8 +123,18 @@ class SketchedTextToSql(nn.Module):
         question_tokens: Tensor,
         headers_tokens: Tensor,
         num_headers: List[int],
+        gold=tuple([None] * 7),
     ) -> Tuple[Tensor, ...]:
         """ forward """
+        (
+            gold_sel_col,
+            gold_sel_agg,
+            gold_where_num,
+            gold_where_cols,
+            gold_where_ops,  # (batch_size, num_column, num_operator)
+            gold_where_starts,
+            gold_where_ends,
+        ) = gold
         with torch.no_grad():
             bert_inputs, bert_mask = self.pack_bert_input(
                 question_tokens, headers_tokens, num_headers
@@ -141,19 +156,40 @@ class SketchedTextToSql(nn.Module):
             question_embedding, headers_embeddings, num_headers
         )
         where_num_logits = self.wnp(question_embedding)  # type: Tensor
+        if gold_where_num is None:
+            gold_where_num = where_num_logits.argmax(dim=-1)
+
         where_col_logits = self.wcp(
-            question_embedding, headers_embeddings, num_headers
+            question_embedding, headers_embeddings, num_headers, gold_where_num
         )  # type: Tensor
+        if gold_where_cols is None:
+            gold_where_cols = [
+                col_logits.topk(num)[1]
+                for col_logits, num in zip(where_col_logits, gold_where_num)
+            ]
         where_op_logits = self.wop(
-            question_embedding, headers_embeddings, num_headers
+            question_embedding,
+            headers_embeddings,
+            num_headers,
+            gold_where_num,
+            gold_where_cols,
         )
+        if gold_where_ops is None:
+            gold_where_ops = [
+                ops[:num]
+                for ops, num in zip(
+                    where_op_logits.argmax(dim=-1), gold_where_num
+                )
+            ]
         value_start_logits, value_end_logits = self.wvp(
             question_embedding,
             headers_embeddings,
             num_headers,
-            where_num_logits,
-            where_col_logits,
+            gold_where_num,
+            gold_where_cols,
+            gold_where_ops,
         )
+
         return (
             select_logits,
             agg_logits,

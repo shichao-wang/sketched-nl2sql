@@ -105,7 +105,7 @@ def train(
     def train_epoch(epoch_num: int):
         """ train batch """
         del epoch_num
-        train_tqdm = tqdm(train_loader)
+        train_tqdm = tqdm(train_loader, dynamic_ncols=True)
         for gold_examples in train_tqdm:  # type: List[Example]
             inputs, targets = batchifier(gold_examples)
             loss = engine.feed(inputs, targets)
@@ -131,7 +131,7 @@ def train(
             dataset, batch_size=int(config.get("batch_size")), collate_fn=list
         )
         epoch_pred_examples, epoch_gold_examples = [], []
-        for gold_examples in tqdm(loader, desc=label):
+        for gold_examples in tqdm(loader, desc=label, dynamic_ncols=True):
             inputs, _ = batchifier(gold_examples)
             pred_queries = engine.predict(inputs)
             pred_examples = [

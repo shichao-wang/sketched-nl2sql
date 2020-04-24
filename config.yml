@@ -11,6 +11,6 @@ dropout: 0.3
 
 # training settings
 batch_size: 32
-max_epoch: 10
+max_epoch: 20
 
 seed: 1234
